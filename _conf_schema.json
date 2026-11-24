@@ -1,62 +1,71 @@
 {
-  "uvx_path": {
-    "description": "uvx.exe 路径",
-    "type": "string",
-    "default": ""
-  },
-  "python_version": {
-    "description": "Python 版本",
-    "type": "string",
-    "default": "3.14"
-  },
-  "uv_python_dir": {
-    "description": "uv 托管 Python 安装目录（留空则使用默认环境，如 C:\\Users\\LENOVO\\AppData\\Roaming\\uv\\python）",
-    "type": "string",
-    "default": ""
-  },
-  "index_url": {
-    "description": "PyPI 镜像源",
-    "type": "string",
-    "default": "https://mirrors.aliyun.com/pypi/simple/"
-  },
-  "http_timeout": {
-    "description": "uv 下载超时（秒），网络慢时调大",
-    "type": "int",
-    "default": 300
-  },
-  "http_retries": {
-    "description": "uv 下载失败重试次数",
-    "type": "int",
-    "default": 5
-  },
-  "package_spec": {
-    "description": "Windows-MCP 的 PyPI 包名与版本，例如 windows-mcp==0.9.0（留空则安装最新版）",
-    "type": "string",
-    "default": "windows-mcp==0.9.0"
-  },
-  "host": {
-    "description": "监听地址",
-    "type": "string",
-    "default": "127.0.0.1"
-  },
-  "port": {
-    "description": "监听端口",
-    "type": "int",
-    "default": 8000
-  },
   "auto_start": {
     "description": "加载插件时自动启动 Windows-MCP",
     "type": "bool",
     "default": true
   },
-  "admin_ids": {
-    "description": "允许控制服务与调用桌面工具的管理员 ID 列表（留空则不限制）",
+  "host": {
+    "description": "Windows-MCP 服务监听地址",
+    "type": "string",
+    "default": "127.0.0.1"
+  },
+  "port": {
+    "description": "Windows-MCP 服务监听端口",
+    "type": "int",
+    "default": 8000
+  },
+  "tool_tier": {
+    "description": "工具权限档位",
+    "type": "string",
+    "default": "safe",
+    "options": [
+      "safe",
+      "standard",
+      "full"
+    ],
+    "labels": [
+      "安全",
+      "标准",
+      "完全"
+    ],
+    "subtitles": [
+      "仅只读与截图类工具",
+      "增加鼠标键盘、窗口与常规应用操作",
+      "含 PowerShell、文件系统、注册表、进程管理"
+    ]
+  },
+  "extra_exclude_tools": {
+    "description": "在当前权限档位基础上额外排除的工具（支持下拉多选）",
     "type": "list",
+    "default": [],
+    "options": [
+      "PowerShell",
+      "FileSystem",
+      "Registry",
+      "Process",
+      "App",
+      "Click",
+      "Type",
+      "Scroll",
+      "Move",
+      "Shortcut",
+      "MultiSelect",
+      "MultiEdit",
+      "Clipboard",
+      "Notification"
+    ]
+  },
+  "admin_ids": {
+    "description": "允许控制服务与调用桌面工具的管理员 ID 列表（留空表示不限制）",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
     "default": []
   },
-  "enable_control": {
-    "description": "允许执行鼠标点击/键盘输入等操作类工具（关闭时仅保留只读截屏策略）",
-    "type": "bool",
-    "default": false
+  "uvx_path": {
+    "description": "uvx.exe 路径（留空则自动从系统 PATH 查找 uvx）",
+    "type": "string",
+    "default": ""
   }
 }

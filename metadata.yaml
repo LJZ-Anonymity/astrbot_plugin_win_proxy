@@ -2,6 +2,6 @@ name: astrbot_plugin_win_proxy # 插件唯一识别名，以 astrbot_plugin_ 开
 display_name: Windows-MCP 服务控制与代理 # 插件展示名
 desc: 管理本地 Windows-MCP 服务开关（启动、停止、状态查询）并为桌面工具接入预留控制入口。 # 插件简短描述
 short_desc: 一键开关本地 Windows-MCP 服务并管理状态 # 插件市场卡片短描述
-version: v0.1.0 # 插件版本号
-author: local # 作者
-astrbot_version: ">=4.16,<5" # 声明支持的 AstrBot 版本范围（PEP 440 格式，不加 v 前缀）
+version: v0.2.0 # 插件版本号
+author: Anonymity # 作者
+astrbot_version: ">=4.16" # 声明支持的 AstrBot 版本范围（PEP 440 格式，不加 v 前缀）

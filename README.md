@@ -17,45 +17,79 @@ Windows-MCP 服务托管插件 / Windows-MCP service manager for AstrBot
 | AstrBot 的 MCP 配置 | 把服务提供的工具登记给 AstrBot，Agent 才能调用 |
 | 插件自带的 Skill | 告诉 Agent 何时、如何使用桌面工具（先看后做、危险操作先确认） |
 
-插件本身不提供任何聊天指令，也不会在对话中主动回复。
+插件负责 Windows-MCP 服务的生命周期管理，并提供少量管理指令。它不会在普通对话中主动回复。
 
 ## 功能
 
 - 插件加载时按配置自动启动 Windows-MCP，在后台等待就绪，不阻塞 AstrBot 启动
 - 插件卸载或重载时自动清理子进程
-- 通过 `uvx` 运行，指定 Python 版本、PyPI 镜像源，并可调整下载超时与重试次数
+- 通过 `uvx` 运行 Windows-MCP，使用 Python `3.14`
+- 自动复用 AstrBot 全局 PyPI 镜像源，无需在插件中重复配置
+- 使用 uv 默认的 HTTP 超时和重试策略
 - 服务输出统一转发到 AstrBot 日志，前缀为 `[windows-mcp]`
+- 支持安全、标准、完全三档工具权限配置
+- 支持额外排除指定工具
+- 支持限制插件管理指令的使用者
 - 随插件提供 `windows-mcp` Skill，在 WebUI 的 `插件 → 技能` 中显示
 
 ## 环境要求
 
 - Windows（停止服务时会调用 PowerShell 清理端口占用）
-- AstrBot `>=4.16,<5`
-- 已安装 [uv](https://docs.astral.sh/uv/)，并知道 `uvx.exe` 的路径
-- 能访问所配置的 PyPI 镜像源
+- AstrBot `>=4.16`
+- 已安装 [uv](https://docs.astral.sh/uv/)，并确保 `uvx` 可以通过系统 PATH 找到，或在插件配置中指定 `uvx.exe` 路径
+- 能访问 AstrBot 全局配置中指定的 PyPI 镜像源，或能访问 PyPI 官方源
 
 ## 安装
 
 1. 将本插件目录放入 AstrBot 的 `data/plugins/` 下，或在 WebUI 的插件页面安装。
-2. 在插件配置页填写 `uvx_path` 等配置（见下表）。
+2. 根据需要修改插件配置（见下表）。
 3. 重载插件。若开启了 `auto_start`，会自动开始启动服务。
 
-**首次启动需要下载并构建依赖，可能要几分钟，期间请不要重载插件**，否则子进程会被清理，需要从头来过。依赖进入 uv 缓存后，之后的启动会很快。
+**首次启动需要下载并构建依赖，可能要几分钟，期间请不要重载插件**，否则子进程会被清理，需要重新启动构建流程。依赖进入 uv 缓存后，之后的启动会快很多。
 
 ## 配置项
 
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `uvx_path` | 空 | `uvx.exe` 的路径，请改成你自己的 |
-| `python_version` | `3.14` | 运行 Windows-MCP 的 Python 版本 |
-| `uv_python_dir` | 空 | uv 托管 Python 的安装目录，**必须是目录**（例如 `C:\Users\<用户名>\AppData\Roaming\uv\python`），不是 `python.exe`。填写后会禁止 uv 自动下载 Python；留空则使用默认环境 |
-| `index_url` | `https://mirrors.aliyun.com/pypi/simple/` | PyPI 镜像源 |
-| `http_timeout` | `300` | uv 下载超时（秒），网络慢时调大 |
-| `http_retries` | `5` | uv 下载失败的重试次数 |
-| `package_spec` | `windows-mcp==0.9.0` | Windows-MCP 的 PyPI 包名与版本，留空则安装最新版 |
-| `host` | `127.0.0.1` | 监听地址 |
-| `port` | `8000` | 监听端口 |
 | `auto_start` | `true` | 加载插件时自动启动 Windows-MCP |
+| `host` | `127.0.0.1` | Windows-MCP 监听地址 |
+| `port` | `8000` | Windows-MCP 监听端口 |
+| `tool_tier` | `safe` | 默认工具权限档位，可选 `safe`、`standard`、`full` |
+| `extra_exclude_tools` | `[]` | 额外排除的 Windows-MCP 工具名称列表 |
+| `admin_ids` | `[]` | 允许使用插件管理指令的用户 ID 列表；留空时不限制 |
+| `uvx_path` | 空 | `uvx.exe` 的完整路径；留空时自动从系统 PATH 查找 |
+
+### 工具权限档位
+
+插件通过 Windows-MCP 的 `--exclude-tools` 参数控制工具可用范围。
+
+| 档位 | 默认排除的工具 | 说明 |
+| --- | --- | --- |
+| `safe` | 高危工具和桌面交互工具 | 默认档位，限制 PowerShell、文件系统、注册表、进程及桌面操作工具 |
+| `standard` | 高危工具 | 保留桌面交互能力，但排除 PowerShell、文件系统、注册表和进程工具 |
+| `full` | 无 | 不额外排除工具，开放 Windows-MCP 提供的全部工具 |
+
+`extra_exclude_tools` 可以在默认档位的基础上继续排除工具。它不会恢复当前档位已经排除的工具。
+
+### 管理指令
+
+| 指令 | 作用 |
+| --- | --- |
+| `/stop_winmcp` | 停止 Windows-MCP 服务 |
+| `/set_tier safe` | 切换到安全档位并重启服务 |
+| `/set_tier standard` | 切换到标准档位并重启服务 |
+| `/set_tier full` | 切换到完全档位并重启服务 |
+| `/set_tier` | 查询当前档位及使用方法 |
+
+如果配置了 `admin_ids`，只有列表中的用户可以执行这些管理指令。留空时不限制指令使用者。
+
+### PyPI 镜像源
+
+插件不再单独提供 PyPI 镜像源配置，而是读取 AstrBot 的全局配置：
+
+`配置文件 → 高级 → PyPI 镜像源`
+
+修改 AstrBot 的全局镜像源后，插件启动时会自动使用对应地址。如果全局配置为空，则使用 uv 默认的软件包索引源。
 
 ## 接入 AstrBot
 
@@ -80,9 +114,12 @@ Skill 只是对模型的行为约束，不会增加权限，也不会替代 MCP 
 
 ## 安全提示
 
-- 插件**不做调用者权限判断**。凡是能触发 Agent 的人，理论上都可能让它操作你的电脑。建议只给自己专用的自定义人格启用这些工具和技能，不要放进群聊使用的默认人格。
-- Skill 里的规则只是对模型的约束，不是真正的权限控制。
-- 停止服务时，插件会结束监听所配置端口的进程（包括不是本插件启动的）。请确认该端口没有被其他重要程序占用，必要时在配置里换一个端口。
+- `admin_ids` 只限制 `/stop_winmcp`、`/set_tier` 等插件管理指令的使用者，**不限制 Agent 对 MCP 工具的调用权限**。
+- 请谨慎选择启用了 Windows-MCP 工具和 Skill 的人格，不要轻易将其放入群聊使用的默认人格。
+- Skill 里的规则只是对模型的行为约束，不是真正的权限控制。
+- `full` 档位会开放 Windows-MCP 提供的全部工具，请谨慎使用。
+- 停止服务时，插件会尝试结束监听所配置端口的进程（包括不是本插件启动的进程）。请确认该端口没有被其他重要程序占用，必要时在配置里换一个端口。
+- 建议仅在可信任的本机环境中运行，不要将 MCP 服务端口暴露到公网。
 
 ## 日志与排查
 
@@ -90,9 +127,10 @@ Skill 只是对模型的行为约束，不会增加权限，也不会替代 MCP 
 
 | 现象 | 可能原因与处理 |
 | --- | --- |
-| `No interpreter found for Python 3.14` | uv 在插件环境里找不到该版本。检查 `uv_python_dir` 是否填成了**目录**，且里面确实有对应版本的托管 Python |
-| `Failed to download ...` / `operation timed out` | 下载超时。调大 `http_timeout`，或检查镜像源和网络（代理、防火墙） |
-| 请求被发到了和 `index_url` 不同的源 | 可能有 `pyproject.toml`、`uv.toml` 或环境变量指定了其他源。插件已设置 `UV_NO_CONFIG` 并清理了相关环境变量，仍出现请检查 `package_spec` 和网络 |
+| 找不到 `uvx` 或启动时提示命令不存在 | 检查是否已安装 uv，确认 `uvx.exe` 已加入系统 PATH，或在插件配置中填写正确的 `uvx_path` |
+| `No interpreter found for Python 3.14` | 检查 uv 是否能够下载或找到 Python `3.14`，并确认网络连接正常 |
+| `Failed to download ...` / `operation timed out` | 检查 AstrBot 全局 PyPI 镜像源和网络连接（代理、防火墙等）；uv 使用自身默认的超时和重试策略 |
+| 请求被发到了和 AstrBot 全局镜像配置不同的源 | 检查 AstrBot 的 `pypi_index_url` 配置，以及插件启动日志中的命令和环境变量 |
 | 提示端口仍未就绪，但进程还在 | 通常是首次构建较慢，查看 `[windows-mcp]` 日志的进度，等待即可 |
 | 日志显示进程提前退出 | 查看退出码前后的 `[windows-mcp]` 日志，里面有 uv 或服务的具体报错 |
 | 浏览器访问 `/mcp` 提示 400 | 正常现象。直接用 GET 访问 MCP 端点缺少必要请求头，不代表服务异常 |
@@ -101,15 +139,14 @@ Skill 只是对模型的行为约束，不会增加权限，也不会替代 MCP 
 
 ## 目录结构
 
-```
+```text
 astrbot_plugin_win_proxy/
 ├── metadata.yaml
 ├── main.py
 ├── _conf_schema.json
 ├── README.md
 └── skills/
-    └── windows-mcp/
-        └── SKILL.md
+    └── SKILL.md
 ```
 
 ## 致谢
